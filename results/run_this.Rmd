@@ -70,14 +70,6 @@ vis %>%
   summarise(no.ldnm = sum(included)) %>%
   group_by(instr.type) %>%
   summarise(avg.no.ldnm = mean(no.ldnm), sd = sd(no.ldnm))
-### count how many landmarks were there per condition
-vis %>%
-  filter(ldnm.type != "GL") %>%
-  count(instr.type, landmark)
-x <- vis %>%
-  group_by(instr.type, ldnm.type) %>%
-  count(landmark)
-x
 ```
 
 
