@@ -1,0 +1,5 @@
+install.packages("rmarkdown")
+install.packages("knitr")
+install.packages("here")
+install.packages("tidyverse")
+install.packages("irr")

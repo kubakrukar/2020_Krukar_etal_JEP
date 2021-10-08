@@ -1,0 +1,394 @@
+---
+title: "Data analysis for: The effect of orientation instructions on the recall and reuse of route and survey elements in wayfinding descriptions"
+author: "Jakub Krukar (krukar@uni-muenster.de / krukar.staff.ifgi.de)"
+output: 
+  github_document: default
+  html_document: default
+always_allow_html: true
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(kableExtra)
+library(readxl)
+library(here)
+library(irr)
+library(kableExtra)
+library(dplyr)
+library(tidyr)
+library(lmerTest)
+library(lme4)
+library(effects)
+library(sjPlot)
+library(piecewiseSEM)
+library(ggplot2)
+library(ordinal)
+source(here("scripts", "1-analysis.R"))
+```
+
+The document lists citations from the paper that refer to some statistical output, and follows the citation with a code chunk that calculated this result. Section, table, and figure numbers are identical as those in the paper.
+
+# 5. Data analysis
+
+## 5.4 Individual differences questionnaires
+
+> Because most of the results of these two individual diﬀerences questionnaires signiﬁcantly correlated in our sample (Mental Rotation Test and global self-conﬁdence scale of the Questionnaire on Spatial Strategies: r = .24, p = .028; Mental Rotation Test and the preference for an allocentric reference frame scale of the Questionnaire on Spatial Strategies: r = .23, p = .034; Mental Rotation Test and the preference for the knowledge of cardinal directions scale of the Questionnaire on Spatial Strategies: r = .12, p = .289), we do not use them simultaneously as predictors in our models in order to avoid the issue of multicollinearity.
+
+```{r}
+x <- df.sr %>%
+  group_by(part.ID) %>%
+  summarise(
+    MRT = unique(MRT1SCORE),
+    scale1 = unique(GlobalSelfConfidence),
+    scale2 = unique(SurveyStrtegy),
+    scale3 = unique(CardinalDirKnow)
+  )
+cor.test(x$MRT, x$scale1)
+cor.test(x$MRT, x$scale2)
+cor.test(x$MRT, x$scale3)
+```
+
+# 6 Results
+
+## 6.1 Quantity of route- and survey-related information
+
+### 6.1.1 Visual mode
+
+>In the visual mode, the turn-by-turn instructions, the spatial chunking instructions, and the orientation instructions contained 12 local (route) landmarks. The orientation instructions additionally contained 3 global (survey-related) landmarks. Participants receiving turn-by-turn instructions, on average, included 2.9 local landmarks in their sketch maps; those in the spatial chunking condition reused an average of 6.9 local landmarks; and those who saw orientation instructions included 9 local landmarks on average plus an additional 2.2 global landmarks on average.
+
+```{r eval=FALSE,  echo=FALSE, message=FALSE, warning=FALSE}
+vis %>%
+  filter(ldnm.type != "GL") %>%
+  group_by(instr.type, part.ID) %>%
+  summarise(no.ldnm = sum(included)) %>%
+  group_by(instr.type) %>%
+  summarise(avg.no.ldnm = mean(no.ldnm))
+
+vis %>%
+  filter(ldnm.type == "GL") %>%
+  group_by(instr.type, part.ID) %>%
+  summarise(no.ldnm = sum(included)) %>%
+  group_by(instr.type) %>%
+  summarise(avg.no.ldnm = mean(no.ldnm), sd = sd(no.ldnm))
+### count how many landmarks were there per condition
+vis %>%
+  filter(ldnm.type != "GL") %>%
+  count(instr.type, landmark)
+x <- vis %>%
+  group_by(instr.type, ldnm.type) %>%
+  count(landmark)
+x
+```
+
+
+Table 4. A logit mixed model describing the impact of instruction type and the Global-egocentric orientation scale questionnaire score on the odds of including a landmark in the sketch map, in the visual mode[7]
+
+```{r  echo=FALSE, message=FALSE, warning=FALSE}
+vis2 <- vis %>% filter(ldnm.type != "GL")
+vis2$landmark <- as.character(vis2$landmark)
+vis2$landmark <- str_replace(vis2$landmark, "\\(GasStation\\(Right\\).SCVis", "Gas")
+vis2$landmark <- str_replace(vis2$landmark, "Café", "Cafe")
+vis2$landmark <- word(vis2$landmark, 1, sep = "\\(")
+vis2$landmark <- word(vis2$landmark, 1, sep = "\\.")
+vis2$landmark <- as.factor(vis2$landmark)
+vis41 <- glmer(included ~ instr.type + GlobalSelfConfidence +
+  (1 | part.ID) + (1 + instr.type | landmark), data = vis2, family = binomial("logit"), control = glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e5)))
+
+tab_model(vis41)
+```
+
+```{r}
+vis40 <- glmer(included ~ instr.type +
+  (1 | part.ID) + (1 + instr.type | landmark), data = vis2, family = binomial("logit"), control = glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e5)))
+vis41 <- glmer(included ~ instr.type + GlobalSelfConfidence +
+  (1 | part.ID) + (1 + instr.type | landmark), data = vis2, family = binomial("logit"), control = glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e5)))
+vis42 <- glmer(included ~ instr.type + SurveyStrtegy +
+  (1 | part.ID) + (1 + instr.type | landmark), data = vis2, family = binomial("logit"), control = glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e5)))
+vis43 <- glmer(included ~ instr.type + CardinalDirKnow +
+  (1 | part.ID) + (1 + instr.type | landmark), data = vis2, family = binomial("logit"), control = glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e5)))
+vis44 <- glmer(included ~ instr.type + MRT1SCORE +
+  (1 | part.ID) + (1 + instr.type | landmark), data = vis2, family = binomial("logit"), control = glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e5)))
+
+anova(vis40, vis41, vis42, vis43, vis44)
+```
+
+Test the global landmark recall rate against 0.
+```{r}
+xyz1 <- vis %>%
+  filter(ldnm.type == "GL") %>%
+  group_by(instr.type, part.ID) %>%
+  summarise(no.ldnm = sum(included)) %>%
+  group_by(instr.type)
+
+t.test(xyz1$no.ldnm, mu = 0, alternative = "greater")
+```
+
+### 6.1.2 Verbal mode
+
+```{r eval=FALSE, echo=FALSE, message=FALSE, warning=FALSE}
+# descriptives ####
+## verbal
+#### number of local landmarks included per condition
+ver %>%
+  filter(ldnm.type != "GL") %>%
+  group_by(instr.type, part.ID) %>%
+  summarise(no.ldnm = sum(included)) %>%
+  group_by(instr.type) %>%
+  summarise(avg.no.ldnm = mean(no.ldnm))
+ver %>%
+  filter(ldnm.type == "GL") %>%
+  group_by(instr.type, part.ID) %>%
+  summarise(no.ldnm = sum(included)) %>%
+  group_by(instr.type) %>%
+  summarise(avg.no.ldnm = mean(no.ldnm), sd = sd(no.ldnm))
+
+### count how many landmarks were there per condition
+ver %>%
+  filter(ldnm.type != "GL") %>%
+  count(instr.type, landmark)
+x <- ver %>%
+  group_by(instr.type, ldnm.type) %>%
+  count(landmark)
+```
+
+
+
+
+Table . Logit mixed model describing the impact of the instruction type in the verbal mode[8].
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ver2 <- ver %>% filter(ldnm.type != "GL")
+ver41 <- glmer(included ~ instr.type + MRT1SCORE +
+  (1 | part.ID) + (1 | instr.type:landmark), data = ver2, family = binomial("logit"))
+tab_model(ver41)
+```
+
+```{r}
+ver40 <- glmer(included ~ instr.type +
+  (1 | part.ID) + (1 | instr.type:landmark), data = ver2, family = binomial("logit"))
+ver41 <- glmer(included ~ instr.type + MRT1SCORE +
+  (1 | part.ID) + (1 | instr.type:landmark), data = ver2, family = binomial("logit"))
+ver42 <- glmer(included ~ instr.type + GlobalSelfConfidence +
+  (1 | part.ID) + (1 | instr.type:landmark), data = ver2, family = binomial("logit"))
+ver43 <- glmer(included ~ instr.type + SurveyStrtegy +
+  (1 | part.ID) + (1 | instr.type:landmark), data = ver2, family = binomial("logit"))
+ver44 <- glmer(included ~ instr.type + CardinalDirKnow +
+  (1 | part.ID) + (1 | instr.type:landmark), data = ver2, family = binomial("logit"))
+anova(ver40, ver41, ver42, ver43, ver44)
+```
+
+Test the global landmark recall rate against 0.
+```{r}
+xyz2 <- ver %>%
+  filter(ldnm.type == "GL") %>%
+  group_by(instr.type, part.ID) %>%
+  summarise(no.ldnm = sum(included)) %>%
+  group_by(instr.type)
+
+t.test(xyz2$no.ldnm, mu = 0, alternative = "greater")
+```
+
+## 6.2 Quality of sketch maps
+
+## 6.2.1 Visual
+
+Raw counts of scores given to sketch maps are presented in Table X.
+
+```{r  echo=FALSE, message=FALSE, warning=FALSE}
+final_mapscore <- read_excel(here("data", "final_mapscore.xlsx"), sheet = "Tabellenblatt1")
+final_mapscore <- final_mapscore %>% select(map_score, part.ID = participant, instr.media = mode, instr.type = cond)
+final_mapscore$part.ID <- str_replace(final_mapscore$part.ID, fixed(" "), "")
+df.sr.ver <- left_join(df.sr.ver, final_mapscore)
+df.sr.ver$instr.type <- recode(df.sr.ver$instr.type, OI = "Orientation Information", SC = "Spatial Chunking", TbT = "Turn-by-turn")
+df.sr.vis <- left_join(df.sr.vis, final_mapscore)
+df.sr.vis$instr.type <- recode(df.sr.vis$instr.type, OI = "Orientation Information", SC = "Spatial Chunking", TbT = "Turn-by-turn")
+
+df.sr.vis %>%
+  group_by(instr.type) %>%
+  count(map_score) %>%
+  spread(key = map_score, value = n, fill = 0) %>%
+  rename(`condition` = `instr.type`, `0:nonsense` = `0`, `1:bad` = `1`, `2:medium` = `2`, `3:good` = `3`) %>%
+  kable() %>%
+  kable_styling()
+```
+
+
+```{r  echo=FALSE, message=FALSE, warning=FALSE}
+# visual
+df.sr.vis <- left_join(
+  df.sr.vis,
+  df.sr[
+    df.sr$instr.media == "visual",
+    c("part.ID", "GlobalSelfConfidence", "SurveyStrtegy", "CardinalDirKnow", "MRT1SCORE", "MRT2SCORE")
+  ]
+)
+df.sr.vis$map_score <- as.ordered(df.sr.vis$map_score)
+df.sr.vis <- df.sr.vis %>% mutate_at(1:3, factor)
+mapscore.visual2 <- clm(map_score ~ instr.type + GlobalSelfConfidence, data = df.sr.vis)
+tab_model(mapscore.visual2)
+```
+
+```{r}
+mapscore.visual0 <- clm(map_score ~ instr.type, data = df.sr.vis)
+mapscore.visual1 <- clm(map_score ~ instr.type + MRT1SCORE, data = df.sr.vis)
+mapscore.visual2 <- clm(map_score ~ instr.type + GlobalSelfConfidence, data = df.sr.vis)
+mapscore.visual3 <- clm(map_score ~ instr.type + SurveyStrtegy, data = df.sr.vis)
+mapscore.visual4 <- clm(map_score ~ instr.type + CardinalDirKnow, data = df.sr.vis)
+
+anova(mapscore.visual0, mapscore.visual1, mapscore.visual2, mapscore.visual3, mapscore.visual4)
+anova(mapscore.visual0, mapscore.visual2)
+```
+
+
+## 6.2.2 Verbal
+
+Raw counts of scores given to sketch maps are presented in Table X.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+df.sr.ver %>%
+  group_by(instr.type) %>%
+  count(map_score) %>%
+  spread(key = map_score, value = n, fill = 0) %>%
+  rename(`condition` = `instr.type`, `0:nonsense` = `0`, `1:bad` = `1`, `2:medium` = `2`, `3:good` = `3`) %>%
+  kable() %>%
+  kable_styling()
+```
+
+
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+# verbal
+df.sr.ver <- left_join(
+  df.sr.ver,
+  df.sr[
+    df.sr$instr.media == "verbal",
+    c("part.ID", "GlobalSelfConfidence", "SurveyStrtegy", "CardinalDirKnow", "MRT1SCORE", "MRT2SCORE")
+  ]
+)
+df.sr.ver$map_score <- as.ordered(df.sr.ver$map_score)
+df.sr.ver <- df.sr.ver %>% mutate_at(1:3, factor)
+mapscore.verbal1 <- clm(map_score ~ instr.type + MRT1SCORE, data = df.sr.ver)
+tab_model(mapscore.verbal1)
+```
+
+```{r}
+mapscore.verbal0 <- clm(map_score ~ instr.type, data = df.sr.ver)
+mapscore.verbal1 <- clm(map_score ~ instr.type + MRT1SCORE, data = df.sr.ver)
+mapscore.verbal2 <- clm(map_score ~ instr.type + GlobalSelfConfidence, data = df.sr.ver)
+mapscore.verbal3 <- clm(map_score ~ instr.type + SurveyStrtegy, data = df.sr.ver)
+mapscore.verbal4 <- clm(map_score ~ instr.type + CardinalDirKnow, data = df.sr.ver)
+anova(mapscore.verbal0, mapscore.verbal1, mapscore.verbal2, mapscore.verbal3, mapscore.verbal4)
+```
+
+
+## 6.3 Type of sketch maps: survey-likeness and route-likeness
+
+
+
+```{r  echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(data = df.sr, aes(x = surveyness, y = routeness, shape = instr.type, colour = instr.type)) +
+  geom_point(size = 5) +
+  geom_hline(data = dfs, aes(yintercept = mean.routeness), linetype = "dotted") +
+  geom_vline(data = dfs, aes(xintercept = mean.surveyness), linetype = "dotted") +
+  scale_y_continuous(breaks = c(0, 1, 2, 3, 4, 5, 6), limits = c(-0.5, 6.5)) +
+  scale_x_continuous(breaks = c(0, 1, 2, 3, 4, 5, 6), limits = c(-0.5, 6.5)) +
+  facet_grid(. ~ instr.media) +
+  theme_bw()
+```
+
+### 6.3.1 Visual
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+vis.routelikeness <- df.sr.vis %>%
+  group_by(instr.type) %>%
+  count(routeness) %>%
+  spread(key = routeness, value = n, fill = 0) %>%
+  rename(` ` = `instr.type`) %>%
+  add_column(`0` = 0) %>%
+  select(1, `0`, everything())
+vis.surveylikeness <- df.sr.vis %>%
+  group_by(instr.type) %>%
+  count(surveyness) %>%
+  spread(key = surveyness, value = n, fill = 0) %>%
+  rename(` ` = `instr.type`) %>%
+  add_column(`6` = 0)
+bind_rows(vis.routelikeness, vis.surveylikeness) %>%
+  kable() %>%
+  kable_styling() %>%
+  pack_rows("Route-likeness", 1, 3) %>%
+  pack_rows("Survey-likeness", 4, 6)
+```
+
+
+
+
+```{r  echo=FALSE, message=FALSE, warning=FALSE}
+df.sr.ord.vis <- filter(df.sr.ord, instr.media == "visual")
+df.sr.ord.ver <- filter(df.sr.ord, instr.media == "verbal")
+
+# visual
+r.vis <- clm(routeness ~ instr.type + MRT1SCORE, link = "logit", data = df.sr.ord.vis)
+s.vis2 <- clm(surveyness ~ instr.type + GlobalSelfConfidence, link = "logit", data = df.sr.ord.vis)
+tab_model(r.vis, s.vis2)
+```
+
+```{r}
+r.vis0 <- clm(routeness ~ instr.type, link = "logit", data = df.sr.ord.vis)
+r.vis1 <- clm(routeness ~ instr.type + MRT1SCORE, link = "logit", data = df.sr.ord.vis)
+r.vis2 <- clm(routeness ~ instr.type + GlobalSelfConfidence, link = "logit", data = df.sr.ord.vis)
+r.vis3 <- clm(routeness ~ instr.type + SurveyStrtegy, link = "logit", data = df.sr.ord.vis)
+r.vis4 <- clm(routeness ~ instr.type + CardinalDirKnow, link = "logit", data = df.sr.ord.vis)
+anova(r.vis0, r.vis1, r.vis2, r.vis3, r.vis4)
+
+s.vis0 <- clm(surveyness ~ instr.type, link = "logit", data = df.sr.ord.vis)
+s.vis1 <- clm(surveyness ~ instr.type + MRT1SCORE, link = "logit", data = df.sr.ord.vis)
+s.vis2 <- clm(surveyness ~ instr.type + GlobalSelfConfidence, link = "logit", data = df.sr.ord.vis)
+s.vis3 <- clm(surveyness ~ instr.type + SurveyStrtegy, link = "logit", data = df.sr.ord.vis)
+s.vis4 <- clm(surveyness ~ instr.type + CardinalDirKnow, link = "logit", data = df.sr.ord.vis)
+anova(s.vis0, s.vis1, s.vis2, s.vis3, s.vis4)
+anova(s.vis0, s.vis2)
+```
+
+### 6.3.2 Verbal
+Table Y presents the number of sketch maps that received each of the 0-6 scores on the route-likeness and on the survey-likeness classification scale in the verbal mode.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ver.routelikeness <- df.sr.ver %>%
+  group_by(instr.type) %>%
+  count(routeness) %>%
+  spread(key = routeness, value = n, fill = 0) %>%
+  rename(` ` = `instr.type`) %>%
+  add_column(`0` = 0) %>%
+  select(1, `0`, everything())
+ver.surveylikeness <- df.sr.ver %>%
+  group_by(instr.type) %>%
+  count(surveyness) %>%
+  spread(key = surveyness, value = n, fill = 0) %>%
+  rename(` ` = `instr.type`) %>%
+  add_column(`6` = 0)
+bind_rows(ver.routelikeness, ver.surveylikeness) %>%
+  kable() %>%
+  kable_styling() %>%
+  pack_rows("Route-likeness", 1, 3) %>%
+  pack_rows("Survey-likeness", 4, 6)
+```
+
+
+
+```{r  echo=FALSE, message=FALSE, warning=FALSE}
+# verbal
+r.ver <- clm(routeness ~ instr.type, link = "logit", data = df.sr.ord.ver)
+# df.sr.ord.ver2 <- df.sr.ord.ver %>% filter(instr.type != "TbT")
+# s.ver    <- clm(surveyness ~ instr.type, link="logit", data=df.sr.ord.ver2)
+# REASON for dunn.test:
+# responses too similar to be informative
+# s    <- clm(surveyness ~ instr.type+GlobalSelfConfidence, link="logit", data=df.sr.ord.ver)
+# https://stats.stackexchange.com/questions/187841/how-to-deal-with-clmm-warning-hessian-is-numerically-singular
+# in TbT almost always takes 0
+
+tab_model(r.ver)
+
+# library(dunn.test)
+# dunn <- dunn.test(df.sr.ver$surveyness, df.sr.ver$instr.type)
+```
