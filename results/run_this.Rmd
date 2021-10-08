@@ -12,7 +12,7 @@ library(tidyverse)
 library(kableExtra)
 library(readxl)
 library(here)
-#library(irr)
+library(irr)
 library(kableExtra)
 #library(tidyr)
 library(lmerTest)
@@ -28,6 +28,25 @@ source(here("scripts", "1-analysis.R"))
 The document lists citations from the paper that refer to some statistical output, and follows the citation with a code chunk that calculated this result. Section, table, and figure numbers are identical as those in the paper.
 
 # 5. Data analysis
+
+## 5.3. Type of sketch maps: survey-likeness and route-likeness
+
+> In order to estimate the potential measurement error arising from the subjectivity of this coding, we let a second coder code a random subset of 17 sketch maps (10% of the dataset). Inter-rater agreement was assessed using a two-way random, agreement-based, average-measures intra-class correlation (Hallgren, 2012), calculated separately for the total route-likeness scores and for the total survey-likeness score using the irr R package (Gamer, Lemon, & Singh, 2012). The inter-rater agreement of the route-likeness and survey-likeness scores for these sketch maps was 1.0, indicating perfect agreement between the two raters at the level of cumulative scores.
+
+```{r}
+df.ir <- read_excel(here("data", "mySurvRout.xlsx"), na = "empty")
+df.ir2 <- read_excel(here("data", "mySurvRout-interrater.xlsx"), na = "empty")
+d.ir <- left_join(df.ir2, df.ir)
+
+# rationale
+# https://www.theanalysisfactor.com/inter-rater-reliability-a-few-good-resources/
+
+df.ir.r <- d.ir %>% select(routeness, routeness_ir)
+df.ir.s <- d.ir %>% select(surveyness, surveyness_ir)
+icc(df.ir.r, model="twoway", type="agreement", unit="average")
+icc(df.ir.s, model="twoway", type="agreement", unit="average")
+```
+
 
 ## 5.4 Individual differences questionnaires
 

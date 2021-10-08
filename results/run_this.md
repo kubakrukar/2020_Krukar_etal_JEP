@@ -15,6 +15,70 @@ as those in the paper.
 
 # 5. Data analysis
 
+## 5.3. Type of sketch maps: survey-likeness and route-likeness
+
+> In order to estimate the potential measurement error arising from the
+> subjectivity of this coding, we let a second coder code a random
+> subset of 17 sketch maps (10% of the dataset). Inter-rater agreement
+> was assessed using a two-way random, agreement-based, average-measures
+> intra-class correlation (Hallgren, 2012), calculated separately for
+> the total route-likeness scores and for the total survey-likeness
+> score using the irr R package (Gamer, Lemon, & Singh, 2012). The
+> inter-rater agreement of the route-likeness and survey-likeness scores
+> for these sketch maps was 1.0, indicating perfect agreement between
+> the two raters at the level of cumulative scores.
+
+``` r
+df.ir <- read_excel(here("data", "mySurvRout.xlsx"), na = "empty")
+df.ir2 <- read_excel(here("data", "mySurvRout-interrater.xlsx"), na = "empty")
+d.ir <- left_join(df.ir2, df.ir)
+```
+
+    ## Joining, by = c("part.ID", "instr.media", "instr.type")
+
+``` r
+# rationale
+# https://www.theanalysisfactor.com/inter-rater-reliability-a-few-good-resources/
+
+df.ir.r <- d.ir %>% select(routeness, routeness_ir)
+df.ir.s <- d.ir %>% select(surveyness, surveyness_ir)
+icc(df.ir.r, model="twoway", type="agreement", unit="average")
+```
+
+    ##  Average Score Intraclass Correlation
+    ## 
+    ##    Model: twoway 
+    ##    Type : agreement 
+    ## 
+    ##    Subjects = 17 
+    ##      Raters = 2 
+    ##    ICC(A,2) = 1
+    ## 
+    ##  F-Test, H0: r0 = 0 ; H1: r0 > 0 
+    ##    F(16,16) = -8146216973037809 , p = 1 
+    ## 
+    ##  95%-Confidence Interval for ICC Population Values:
+    ##   1 < ICC < 1
+
+``` r
+icc(df.ir.s, model="twoway", type="agreement", unit="average")
+```
+
+    ##  Average Score Intraclass Correlation
+    ## 
+    ##    Model: twoway 
+    ##    Type : agreement 
+    ## 
+    ##    Subjects = 17 
+    ##      Raters = 2 
+    ##    ICC(A,2) = 1
+    ## 
+    ##  F-Test, H0: r0 = 0 ; H1: r0 > 0 
+    ##    F(16,16) = 6225564190776862 , p = 0.00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000285 
+    ## 
+    ##  95%-Confidence Interval for ICC Population Values:
+    ##   1 < ICC < 1
+
 ## 5.4 Individual differences questionnaires
 
 > Because most of the results of these two individual diﬀerences
@@ -1239,7 +1303,7 @@ top each other (e.g., only one red circle is visible on position 5,5 in
 the “verbal” panel, while in fact these are multiple circles plotted on
 top of each other. They were moved apart manually).*
 
-![](run_this_files/figure-gfm/unnamed-chunk-18-1.png)<!-- -->
+![](run_this_files/figure-gfm/unnamed-chunk-19-1.png)<!-- -->
 
 ### 6.3.1 Visual
 
